@@ -28,7 +28,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
         # GitHub Container Registry にログイン
         # `--password-stdin` を使用することで、トークンがログに出力されるのを防ぐ
 
@@ -128,11 +128,11 @@ jobs:
           if gh api /user/packages/container/salesforce-cli --silent > /dev/null 2>&1; then
             gh api -X PATCH "/user/packages/container/salesforce-cli/visibility" \
               -f visibility=private \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+              -H "Authorization: token ${{ secrets.GHCR_PAT }}"
           else
             gh api -X PATCH "/orgs/$REPO_OWNER_LOWER/packages/container/salesforce-cli/visibility" \
               -f visibility=private \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+              -H "Authorization: token ${{ secrets.GHCR_PAT }}"
           fi
         # Organization / 個人どちらのパターンにも対応し、GHCR の `salesforce-cli` イメージを `Private` に設定
 
