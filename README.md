@@ -11,6 +11,12 @@
 ③
 
 
+個人アカウント用
+https://github.com/users/<GitHubユーザー名>/packages/container/salesforce-cli
+
+
+組織用
+https://github.com/orgs/<Organization名>/packages/container/salesforce-cli
 
 
 
