@@ -55,9 +55,6 @@ jobs:
           if docker manifest inspect $IMAGE_TAG > /dev/null 2>&1; then
             echo "✅ Image already exists: $IMAGE_TAG"
             echo "SKIP_BUILD=true" >> $GITHUB_ENV
-          elif [[ $? -eq 1 ]]; then
-            echo "❌ Error: Unauthorized (401) - Check GITHUB_TOKEN permissions"
-            exit 1
           else
             echo "❌ Image does not exist: $IMAGE_TAG"
             echo "SKIP_BUILD=false" >> $GITHUB_ENV
