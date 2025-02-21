@@ -114,6 +114,16 @@ jobs:
         # `docker build` を実行し、新しいイメージを作成（タグは CLI のバージョン）
         # `docker push` で GHCR にアップロード
 
+      - name: Set Image to Private (Prevent Public Exposure)
+        if: env.SKIP_BUILD == 'false'
+        run: |
+          gh api -X PATCH "/user/packages/container/salesforce-cli/visibility" \
+            -f visibility=private \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # GHCR の `salesforce-cli` イメージを `Private` に設定
+
       - name: Output Status
         run: |
           if [ "${{ env.SKIP_BUILD }}" == "true" ]; then
