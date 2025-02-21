@@ -40,7 +40,9 @@ jobs:
       - name: Check if Image Exists on GHCR
         id: check-image
         run: |
-          IMAGE_TAG="ghcr.io/Yuta-Haruna/salesforce-docker-env:${{ env.CLI_VERSION }}"
+          REPO_NAME="ghcr.io/salesforce-docker-env/salesforce-cli"
+          IMAGE_TAG="$REPO_NAME:${{ env.CLI_VERSION }}"
+          
           if docker manifest inspect $IMAGE_TAG > /dev/null 2>&1; then
             echo "Image already exists: $IMAGE_TAG"
             echo "SKIP_BUILD=true" >> $GITHUB_ENV
@@ -54,11 +56,12 @@ jobs:
       - name: Delete Old Tags (Keep only latest)
         if: env.SKIP_BUILD == 'false'
         run: |
+          REPO_NAME="ghcr.io/salesforce-docker-env/salesforce-cli"
           echo "🔄 Checking for existing tags in GHCR..."
           
           # GHCR からタグリストを取得
           TAGS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://ghcr.io/v2/Yuta-Haruna/salesforce-docker-env/tags/list")
+            "https://ghcr.io/v2/salesforce-docker-env/salesforce-cli/tags/list")
 
           # レスポンスの中身をログに出力（デバッグ用）
           echo "📝 GHCR API Response: $TAGS_RESPONSE"
@@ -77,7 +80,7 @@ jobs:
             if [ "$TAG" != "${{ env.CLI_VERSION }}" ]; then
               echo "🗑 Deleting old image tag: $TAG"
               curl -X DELETE -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                "https://ghcr.io/v2/Yuta-Haruna/salesforce-docker-env/manifests/$TAG"
+                "https://ghcr.io/v2/salesforce-docker-env/salesforce-cli/manifests/$TAG"
             fi
           done
         # GHCR にあるすべてのタグを取得し、最新バージョン以外のタグを削除する
@@ -95,11 +98,12 @@ jobs:
       - name: Build and Push Updated Image
         if: env.SKIP_BUILD == 'false'
         run: |
-          IMAGE_TAG="ghcr.io/Yuta-Haruna/salesforce-docker-env:${{ env.CLI_VERSION_NORMALIZED }}"
+          REPO_NAME="ghcr.io/salesforce-docker-env/salesforce-cli"
+          IMAGE_TAG="$REPO_NAME:${{ env.CLI_VERSION_NORMALIZED }}"
           
           echo "🛠 Building new image: $IMAGE_TAG"
           docker build -t $IMAGE_TAG .
-          
+
           echo "📤 Pushing new image: $IMAGE_TAG"
           docker push $IMAGE_TAG
         # `docker build` を実行し、新しいイメージを作成（タグは CLI のバージョン）
