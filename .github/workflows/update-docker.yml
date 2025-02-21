@@ -18,17 +18,9 @@ jobs:
         uses: actions/checkout@v3
         # 環境リポジトリのコードを取得（Dockerfile などを利用するため）
 
-      - name: Set Repository Name
-        run: |
-          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          REPO_NAME="ghcr.io/${REPO_OWNER_LOWER}/salesforce-cli"
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "✅ Using GHCR Repository: $REPO_NAME"
-        # GitHub ユーザー名または Organization 名を小文字に変換し、GHCR のリポジトリパスを設定
-
       - name: Login to GitHub Container Registry
         run: |
-          echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
         # GitHub Container Registry にログイン
         # `--password-stdin` を使用することで、トークンがログに出力されるのを防ぐ
 
@@ -39,24 +31,23 @@ jobs:
       - name: Get Salesforce CLI Version
         id: get-cli-version
         run: |
-          CLI_VERSION_RAW=$(docker run --rm salesforce/cli:latest-full sf --version | awk '{print $1}')
-          CLI_VERSION=$(echo "$CLI_VERSION_RAW" | sed -E 's/[^0-9.]//g')
+          CLI_VERSION=$(docker run --rm salesforce/cli:latest-full sf --version | awk '{print $1}')
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
-          echo "🚀 Salesforce CLI version detected: $CLI_VERSION"
+          echo "☽☽☽ Salesforce CLI version detected: $CLI_VERSION"
         # `salesforce/cli:latest-full` から CLI のバージョンを取得し、環境変数に格納
         # `sf --version` の出力の最初の部分を取得し、バージョン番号として使用
-
 
       - name: Check if Image Exists on GHCR
         id: check-image
         run: |
-          IMAGE_TAG="${{ env.REPO_NAME }}:${{ env.CLI_VERSION }}"
-
+          REPO_NAME="ghcr.io/salesforce-docker-env/salesforce-cli"
+          IMAGE_TAG="$REPO_NAME:${{ env.CLI_VERSION }}"
+          
           if docker manifest inspect $IMAGE_TAG > /dev/null 2>&1; then
-            echo "✅ Image already exists: $IMAGE_TAG"
+            echo "Image already exists: $IMAGE_TAG"
             echo "SKIP_BUILD=true" >> $GITHUB_ENV
           else
-            echo "❌ Image does not exist: $IMAGE_TAG"
+            echo "Image does not exist: $IMAGE_TAG"
             echo "SKIP_BUILD=false" >> $GITHUB_ENV
           fi
         # GHCR に既に同じバージョンのイメージがあるか確認
@@ -65,20 +56,21 @@ jobs:
       - name: Delete Old Tags (Keep only latest)
         if: env.SKIP_BUILD == 'false'
         run: |
+          REPO_NAME="ghcr.io/salesforce-docker-env/salesforce-cli"
           echo "🔄 Checking for existing tags in GHCR..."
           
           # GHCR からタグリストを取得
           TAGS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://ghcr.io/v2/${{ env.REPO_NAME }}/tags/list")
+            "https://ghcr.io/v2/salesforce-docker-env/salesforce-cli/tags/list")
 
           # レスポンスの中身をログに出力（デバッグ用）
           echo "📝 GHCR API Response: $TAGS_RESPONSE"
 
           # jq で `tags` キーが存在するかチェック
-          EXISTING_TAGS=$(echo "$TAGS_RESPONSE" | jq -r '.tags[]? // empty')
+          EXISTING_TAGS=$(echo "$TAGS_RESPONSE" | jq -r '.tags[]?')
 
           # 初回実行（タグが存在しない）場合はスキップ
-          if [[ -z "$EXISTING_TAGS" ]]; then
+          if [[ -z "$EXISTING_TAGS" || "$EXISTING_TAGS" == "null" ]]; then
             echo "🚀 No existing tags found in GHCR. This is the first run. Skipping deletion."
             exit 0
           fi
@@ -88,7 +80,7 @@ jobs:
             if [ "$TAG" != "${{ env.CLI_VERSION }}" ]; then
               echo "🗑 Deleting old image tag: $TAG"
               curl -X DELETE -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                "https://ghcr.io/v2/${{ env.REPO_NAME }}/manifests/$TAG"
+                "https://ghcr.io/v2/salesforce-docker-env/salesforce-cli/manifests/$TAG"
             fi
           done
         # GHCR にあるすべてのタグを取得し、最新バージョン以外のタグを削除する
@@ -106,7 +98,8 @@ jobs:
       - name: Build and Push Updated Image
         if: env.SKIP_BUILD == 'false'
         run: |
-          IMAGE_TAG="${{ env.REPO_NAME }}:${{ env.CLI_VERSION_NORMALIZED }}"
+          REPO_NAME="ghcr.io/salesforce-docker-env/salesforce-cli"
+          IMAGE_TAG="$REPO_NAME:${{ env.CLI_VERSION_NORMALIZED }}"
           
           echo "🛠 Building new image: $IMAGE_TAG"
           docker build -t $IMAGE_TAG .
@@ -116,28 +109,11 @@ jobs:
         # `docker build` を実行し、新しいイメージを作成（タグは CLI のバージョン）
         # `docker push` で GHCR にアップロード
 
-      - name: Force Set Image to Private (Prevent Public Exposure)
-        if: env.SKIP_BUILD == 'false'
-        run: |
-          echo "🔒 Setting GHCR package visibility to PRIVATE..."
-          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-
-          if gh api /user/packages/container/salesforce-cli --silent > /dev/null 2>&1; then
-            gh api -X PATCH "/user/packages/container/salesforce-cli/visibility" \
-              -f visibility=private \
-              -H "Authorization: token ${{ secrets.GHCR_PAT }}"
-          else
-            gh api -X PATCH "/orgs/$REPO_OWNER_LOWER/packages/container/salesforce-cli/visibility" \
-              -f visibility=private \
-              -H "Authorization: token ${{ secrets.GHCR_PAT }}"
-          fi
-        # Organization / 個人どちらのパターンにも対応し、GHCR の `salesforce-cli` イメージを `Private` に設定
-
       - name: Output Status
         run: |
           if [ "${{ env.SKIP_BUILD }}" == "true" ]; then
             echo "★★★ No new Salesforce CLI version detected. Skipping build and push. ★★★"
           else
-            echo "★★★ New Salesforce CLI version deployed: ${{ env.CLI_VERSION_NORMALIZED }} ★★★"
+            echo "★★★ New Salesforce CLI version deployed: ${{ env.CLI_VERSION }} ★★★"
           fi
         # ワークフローの最終出力をログに記録
