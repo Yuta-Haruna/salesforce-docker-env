@@ -114,15 +114,27 @@ jobs:
         # `docker build` を実行し、新しいイメージを作成（タグは CLI のバージョン）
         # `docker push` で GHCR にアップロード
 
-      - name: Set Image to Private (Prevent Public Exposure)
+      - name: Force Set Image to Private (Prevent Public Exposure)
         if: env.SKIP_BUILD == 'false'
         run: |
-          gh api -X PATCH "/user/packages/container/salesforce-cli/visibility" \
-            -f visibility=private \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+          echo "🔒 Setting GHCR package visibility to PRIVATE..."
+          if [[ "${{ github.repository_owner }}" == *"-"* ]]; then
+            # Organization 用
+            ORG_NAME="${{ github.repository_owner }}"
+            echo "🔒 Setting package visibility for Organization: $ORG_NAME"
+            gh api -X PATCH "/orgs/$ORG_NAME/packages/container/salesforce-cli/visibility" \
+              -f visibility=private \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+          else
+            # 個人アカウント用
+            echo "🔒 Setting package visibility for User: ${{ github.repository_owner }}"
+            gh api -X PATCH "/user/packages/container/salesforce-cli/visibility" \
+              -f visibility=private \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # GHCR の `salesforce-cli` イメージを `Private` に設定
+        # Organization / 個人どちらのパターンにも対応し、GHCR の `salesforce-cli` イメージを `Private` に設定
 
       - name: Output Status
         run: |
