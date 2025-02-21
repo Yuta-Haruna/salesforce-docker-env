@@ -54,10 +54,25 @@ jobs:
       - name: Delete Old Tags (Keep only latest)
         if: env.SKIP_BUILD == 'false'
         run: |
-          echo "🔄 Deleting old tags..."
-          EXISTING_TAGS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://ghcr.io/v2/Yuta-Haruna/salesforce-docker-env/tags/list" | jq -r '.tags[]')
+          echo "🔄 Checking for existing tags in GHCR..."
+          
+          # GHCR からタグリストを取得
+          TAGS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://ghcr.io/v2/Yuta-Haruna/salesforce-docker-env/tags/list")
 
+          # レスポンスの中身をログに出力（デバッグ用）
+          echo "📝 GHCR API Response: $TAGS_RESPONSE"
+
+          # jq で `tags` キーが存在するかチェック
+          EXISTING_TAGS=$(echo "$TAGS_RESPONSE" | jq -r '.tags[]?')
+
+          # 初回実行（タグが存在しない）場合はスキップ
+          if [[ -z "$EXISTING_TAGS" || "$EXISTING_TAGS" == "null" ]]; then
+            echo "🚀 No existing tags found in GHCR. This is the first run. Skipping deletion."
+            exit 0
+          fi
+
+          # タグを削除するループ処理
           for TAG in $EXISTING_TAGS; do
             if [ "$TAG" != "${{ env.CLI_VERSION }}" ]; then
               echo "🗑 Deleting old image tag: $TAG"
