@@ -143,3 +143,5 @@ jobs:
             echo "★★★ No new Salesforce CLI version detected. Skipping build and push. ★★★"
           else
             echo "★★★ New Salesforce CLI version deployed: ${{ env.CLI_VERSION_NORMALIZED }} ★★★"
+          fi
+        # ワークフローの最終出力をログに記録
