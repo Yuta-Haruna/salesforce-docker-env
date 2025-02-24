@@ -10,7 +10,10 @@ jobs:
   update-docker:
     runs-on: ubuntu-latest
     permissions:
-      packages: write       # GHCR にプッシュするための書き込み権限
+      packages: write   # GHCR にプッシュするための書き込み権限
+
+    env:
+      GH_TOKEN: ${{ secrets.GHCR_PAT }}
 
     steps:
       - name: Checkout Repository
