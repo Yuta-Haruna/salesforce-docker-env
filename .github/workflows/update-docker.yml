@@ -1,4 +1,4 @@
-name: Update Salesforce Dev Container
+name: Always Build Salesforce Dev Container
 
 # トリガー設定
 on:
@@ -12,14 +12,12 @@ jobs:
     permissions:
       packages: write   # GHCR にプッシュするための書き込み権限
 
-    env:
-      GH_TOKEN: ${{ secrets.GHCR_PAT }}
-
     steps:
+      # 1. リポジトリをチェックアウト
       - name: Checkout Repository
         uses: actions/checkout@v3
-        # リポジトリのソースコードをチェックアウト（Dockerfileなどを利用するため）
 
+      # 2. GHCR リポジトリ名の設定
       - name: Set Repository Name
         run: |
           # GitHub 上でのオーナー(ユーザー or Org)名を小文字に変換
@@ -31,6 +29,7 @@ jobs:
 
           echo "✅ Using GHCR Repository: $REPO_NAME"
 
+      # 3. GHCR にログイン (Personal Access Token の GHCR_PAT を使用)
       - name: Login to GitHub Container Registry
         run: |
           # GitHub Container Registry (ghcr.io) へログイン
@@ -38,41 +37,30 @@ jobs:
           # ${{ github.actor }} は GitHub Actions を実行しているユーザー名を取得
           echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+      # 4. 最新の Salesforce CLI イメージを pull (ベースとして使用)
       - name: Pull latest Salesforce CLI image
         run: |
           # 公式の最新イメージを Pull
           # Node.js 含む “latest-full” が便利
           docker pull salesforce/cli:latest-full
 
-      - name: Get Salesforce CLI Version
-        id: get-cli-version
+      # 5. Docker イメージをビルド (常に再ビルド)
+      - name: Build Docker image
         run: |
-          # pulled イメージ内の “sf --version” コマンドでバージョンを取得
-          CLI_VERSION_RAW=$(docker run --rm salesforce/cli:latest-full sf --version | awk '{print $1}')
+          IMAGE_TAG="${{ env.REPO_NAME }}:latest"
+          echo "🛠 Building new image: $IMAGE_TAG"
 
-          # 例: "salesforce-cli/2.77.6" から数値部分だけ抜き出す (sedで非数字を除去)
-          CLI_VERSION=$(echo "$CLI_VERSION_RAW" | sed -E 's/[^0-9.]//g')
+          docker build -t "$IMAGE_TAG" .
 
-          # 環境変数として保存
-          echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
-          echo "🚀 Salesforce CLI version detected: $CLI_VERSION"
-
-      - name: Check if Image Exists on GHCR
-        id: check-image
+      # 6. Docker イメージを push (latest のみ)　古いバージョンのタグは自動で変更される
+      - name: Push Docker image
         run: |
-          # すでに “CLI_VERSION” タグのイメージが存在する場合は再ビルドをスキップする
-          IMAGE_TAG="${{ env.REPO_NAME }}:${{ env.CLI_VERSION }}"
+          IMAGE_TAG="${{ env.REPO_NAME }}:latest"
+          echo "📤 Pushing new image: $IMAGE_TAG"
+          docker push "$IMAGE_TAG"
 
-          if docker manifest inspect $IMAGE_TAG > /dev/null 2>&1; then
-            echo "✅ Image already exists: $IMAGE_TAG"
-            echo "SKIP_BUILD=true" >> $GITHUB_ENV
-          else
-            echo "❌ Image does not exist: $IMAGE_TAG"
-            echo "SKIP_BUILD=false" >> $GITHUB_ENV
-          fi
-
-      - name: Delete Old Tags (Keep only latest)
-        if: env.SKIP_BUILD == 'false'
+      # 7. Delete Old Tags (keep only latest)
+      - name: Delete Old Tags
         run: |
           echo "🔄 Checking for existing tags in GHCR..."
 
@@ -92,9 +80,9 @@ jobs:
             exit 0
           fi
 
-          # 古いバージョンのタグを削除 (最新だけ残す)
+          # latest 以外のタグをすべて削除する
           for TAG in $EXISTING_TAGS; do
-            if [ "$TAG" != "${{ env.CLI_VERSION }}" ]; then
+            if [ "$TAG" != "latest" ]; then
               echo "🗑 Deleting old image tag: $TAG"
               curl -X DELETE \
                 -H "Authorization: Bearer ${{ secrets.GHCR_PAT }}" \
@@ -102,31 +90,7 @@ jobs:
             fi
           done
 
-      - name: Normalize Salesforce CLI Version for Docker Tag
-        run: |
-          # 念のため CLIバージョンの正規化 (数字とドットのみにする)
-          CLI_VERSION_RAW="${{ env.CLI_VERSION }}"
-          CLI_VERSION=$(echo "$CLI_VERSION_RAW" | sed -E 's/[^0-9.]//g')
-
-          echo "CLI_VERSION_NORMALIZED=$CLI_VERSION" >> $GITHUB_ENV
-          echo "🚀 Normalized CLI Version: $CLI_VERSION"
-
-      - name: Build and Push Updated Image
-        if: env.SKIP_BUILD == 'false'
-        run: |
-          IMAGE_TAG="${{ env.REPO_NAME }}:${{ env.CLI_VERSION_NORMALIZED }}"
-
-          echo "🛠 Building new image: $IMAGE_TAG"
-          docker build -t $IMAGE_TAG .
-
-          echo "📤 Pushing new image: $IMAGE_TAG"
-          docker push $IMAGE_TAG
-
+      # 8. 結果表示
       - name: Output Status
         run: |
-          if [ "${{ env.SKIP_BUILD }}" == "true" ]; then
-            echo "★★★ No new Salesforce CLI version detected. Skipping build and push. ★★★"
-          else
-            echo "★★★ New Salesforce CLI version deployed: ${{ env.CLI_VERSION_NORMALIZED }} ★★★"
-          fi
-        # ワークフローの最終出力をログに記録
+          echo "★★★ Docker image built & pushed as 'latest' ★★★"
