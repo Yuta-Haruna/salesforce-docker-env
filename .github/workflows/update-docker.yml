@@ -122,25 +122,6 @@ jobs:
           echo "📤 Pushing new image: $IMAGE_TAG"
           docker push $IMAGE_TAG
 
-      # - name: Force Set Image to Private (Prevent Public Exposure)
-      #   if: env.SKIP_BUILD == 'false'
-      #   run: |
-      #     echo "🔒 Setting GHCR package visibility to PRIVATE..."
-      #     REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-
-      #     # GitHub CLI の gh コマンドを使い、パッケージの可視性を Private に設定
-      #     # "user/packages" か "orgs/<org>/packages" どちらを使うか分岐
-      #     # 今回は
-      #     if gh api /user/packages/container/salesforce-cli --silent > /dev/null 2>&1; then
-      #       gh api -X PATCH "/user/packages/container/salesforce-cli/visibility" \
-      #         -f visibility=private \
-      #         -H "Authorization: token ${{ secrets.GHCR_PAT }}"
-      #     # else
-      #     #   gh api -X PATCH "/orgs/$REPO_OWNER_LOWER/packages/container/salesforce-cli/visibility" \
-      #     #     -f visibility=private \
-      #     #     -H "Authorization: token ${{ secrets.GHCR_PAT }}"
-      #     fi
-
       - name: Output Status
         run: |
           if [ "${{ env.SKIP_BUILD }}" == "true" ]; then
