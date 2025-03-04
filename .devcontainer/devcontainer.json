@@ -1,0 +1,35 @@
+// .devcontainer/devcontainer.json
+{
+    "name": "Salesforce CLI Dev Container",
+
+    // GHCR の Docker イメージを指定 (常に :latest を使用)
+    "image": "ghcr.io/<YOUR_USER>/salesforce-cli:latest",
+
+    // コンテナ内で使いたいポートを転送 (例: 8080 番など)
+    // "forwardPorts": [8080],
+
+    // コンテナ初回起動時に実行するコマンド
+    //  (例: CLIバージョン確認)
+    // "postCreateCommand": "sf --version",
+
+    // もし任意の拡張機能を Dev Container 内にインストールしたい場合は、以下例を追加
+    // "features": {
+    //   "ghcr.io/devcontainers/features/node:1": {
+    //     "version": "16"
+    //   }
+    // },
+
+    // あるいは VSCode拡張 (例: salesforce.salesforcedx-vscode-lwc) をインストール
+    "extensions": [
+        "salesforce.salesforcedx-vscode",
+        "vscode-icons-team.vscode-icons",
+        "chuckjonas.apex-pmd",
+    ],
+
+    // もしユーザー/UID/環境変数の設定が必要なら下記のように指定できます
+    // "containerUser": "vscode",
+    // "remoteUser": "vscode",
+    // "env": {
+    //   "EXAMPLE_VAR": "some_value"
+    // }
+}
