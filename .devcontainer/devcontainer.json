@@ -9,8 +9,8 @@
     // "forwardPorts": [8080],
 
     // コンテナ初回起動時に実行するコマンド
-    //  (例: CLIバージョン確認)
-    // "postCreateCommand": "sf --version",
+    // 1_既存のSFプロジェクトを確認し、なければ雛形を作成する
+    "postCreateCommand": "if [ ! -f ./sfdx-project.json ]; then PROJECT_NAME=$(basename $(pwd)); sfdx force:project:create --projectname $PROJECT_NAME --outputdir .; fi",
 
     // もし任意の拡張機能を Dev Container 内にインストールしたい場合は、以下例を追加
     // "features": {
