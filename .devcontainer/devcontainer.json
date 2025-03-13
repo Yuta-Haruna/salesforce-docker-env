@@ -3,14 +3,16 @@
     "name": "Salesforce CLI Dev Container",
 
     // GHCR の Docker イメージを指定 (常に :latest を使用)
-    "image": "ghcr.io/<YOUR_USER>/salesforce-cli:latest",
+    "image": "ghcr.io/yuta-haruna/salesforce-cli:latest",
 
     // コンテナ内で使いたいポートを転送 (例: 8080 番など)
     // "forwardPorts": [8080],
 
     // コンテナ初回起動時に実行するコマンド
     // 1_既存のSFプロジェクトを確認し、なければ雛形を作成する
-    "postCreateCommand": "if [ ! -f ./sfdx-project.json ]; then PROJECT_NAME=$(basename $(pwd)); sfdx force:project:create --projectname $PROJECT_NAME --outputdir .; fi",
+    // "postCreateCommand": "if [ ! -f ./sfdx-project.json ]; then PROJECT_NAME=$(basename $(pwd)); sfdx force:project:create --projectname $PROJECT_NAME --outputdir .; fi",
+    "postCreateCommand": "if [ ! -f ./sfdx-project.json ]; then sfdx force:project:create --projectname $(basename $(pwd)) --outputdir .. --template standard --manifest && shopt -s dotglob && mv ../$(basename $(pwd))/* . && rm -rf ../$(basename $(pwd)); fi",
+
 
     // もし任意の拡張機能を Dev Container 内にインストールしたい場合は、以下例を追加
     // "features": {
