@@ -28,15 +28,29 @@
     },
 
     // VSCode拡張機能を指定
+    // @Yuta-Haruna が使用している推奨拡張機能です。各プロジェクトで調整してください。
     "customizations": {
         "vscode": {
             "extensions": [
                 "salesforce.salesforcedx-vscode",
                 "vscode-icons-team.vscode-icons",
-                "chuckjonas.apex-pmd"
+                "chuckjonas.apex-pmd",
+                "aaron-bond.better-comments",
+                "shardulm94.trailing-spaces",
+                "rangav.vscode-thunder-client",
+                "haruki.sfdc-package-xml-generator-by-git",
+                "ms-vsliveshare.vsliveshare",
+                "oderwat.indent-rainbow",
+                "seatonjiang.gitmoji-vscode",
+                "github.vscode-pull-request-github",
+                "donjayamanne.githistory",
+                "mhutchie.git-graph",
+                "streetsidesoftware.code-spell-checker",
+                "ibm.output-colorizer",
+                "aaron-bond.better-comments"
             ]
         }
-    },
+    }
 
     // ユーザー/UID/環境変数の設定（必要な場合のみ）
     // "containerUser": "vscode",
