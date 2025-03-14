@@ -20,12 +20,23 @@
     //   }
     // },
 
+    // コンテナ環境のオプション
+    "containerEnv": {
+        "SF_CODE_COVERAGE_REQUIREMENT": "75",
+        "SF_DISABLE_AUTOUPDATE": "true",
+        "SF_AUTOUPDATE_DISABLE": "true"
+    },
+
     // VSCode拡張機能を指定
-    "extensions": [
-        "salesforce.salesforcedx-vscode",
-        "vscode-icons-team.vscode-icons",
-        "chuckjonas.apex-pmd"
-    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "salesforce.salesforcedx-vscode",
+                "vscode-icons-team.vscode-icons",
+                "chuckjonas.apex-pmd"
+            ]
+        }
+    },
 
     // ユーザー/UID/環境変数の設定（必要な場合のみ）
     // "containerUser": "vscode",
