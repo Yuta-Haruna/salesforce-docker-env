@@ -10,8 +10,8 @@
 
     // コンテナ初回起動時に実行するコマンド
     // 1. 既存のSFプロジェクトを確認し、なければ雛形を作成（既存ファイルを安全に維持）
-    // "postCreateCommand": "/bin/bash -c 'TEMP_DIR=__temp_sf_project__;if [ ! -f ./sfdx-project.json ]; then sfdx force:project:create -n $TEMP_DIR -d .. -t standard --manifest && mv ../$TEMP_DIR/* ../$TEMP_DIR/.* . 2>/dev/null || true && rm -rf ../$TEMP_DIR; fi'",
-    "postCreateCommand": "/bin/bash -c 'TEMP_DIR=__temp_sf_project__;if [ ! -f ./sfdx-project.json ]; then sfdx force:project:create -n $TEMP_DIR -d .. -t standard --manifest && mv ../$TEMP_DIR/* ../$TEMP_DIR/.* . 2>/dev/null || true && rm -rf ../$TEMP_DIR; CURRENT_DIR_NAME=$(basename $(pwd)); sed -i \"s/\\\"name\\\": \\\"$TEMP_DIR\\\"/\\\"name\\\": \\\"$CURRENT_DIR_NAME\\\"/\" sfdx-project.json; fi'",
+    //  A. createプロジェクト実行後、デフォルトgitignoreの改修を行う。
+    "postCreateCommand": "/bin/bash -c 'TEMP_DIR=__temp_sf_project__;if [ ! -f ./sfdx-project.json ]; then sfdx force:project:create -n $TEMP_DIR -d .. -t standard --manifest && mv ../$TEMP_DIR/* ../$TEMP_DIR/.* . 2>/dev/null || true && rm -rf ../$TEMP_DIR; CURRENT_DIR_NAME=$(basename $(pwd)); sed -i \"s/\\\"name\\\": \\\"$TEMP_DIR\\\"/\\\"name\\\": \\\"$CURRENT_DIR_NAME\\\"/\" sfdx-project.json; cat ./.devcontainer/.initgitignore > ./.gitignore; fi'",
 
     // 任意の拡張機能を Dev Container 内にインストールしたい場合は、以下例を追加
     // "features": {
