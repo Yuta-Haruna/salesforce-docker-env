@@ -1,124 +1,96 @@
-name: Update Salesforce Dev Container
+name: Always Build Salesforce Dev Container
 
-# トリガー
+# トリガー設定
 on:
   schedule:
-    - cron: '0 13 1 * *'  # 毎月1日の 13:00 に実行（UTC基準）（日本時間4:00）
-  workflow_dispatch:  # 手動実行も可能
+    - cron: '0 13 1 * *'  # 毎月1日 13:00(UTC)に実行 → 日本時間では22時 or 23時前後ではなく、4時 (プラス9時間) になります
+  workflow_dispatch:      # 手動実行も可能
 
-# ジョブ
 jobs:
   update-docker:
     runs-on: ubuntu-latest
     permissions:
-      packages: write  # GitHub Container Registry にプッシュする権限
+      packages: write   # GHCR にプッシュするための書き込み権限
 
     steps:
+      # 1. リポジトリをチェックアウト
       - name: Checkout Repository
         uses: actions/checkout@v3
-        # 環境リポジトリのコードを取得（Dockerfile などを利用するため）
 
+      # 2. GHCR リポジトリ名の設定
       - name: Set Repository Name
         run: |
+          # GitHub 上でのオーナー(ユーザー or Org)名を小文字に変換
           REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           REPO_NAME="ghcr.io/${REPO_OWNER_LOWER}/salesforce-cli"
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "✅ Using GHCR Repository: $REPO_NAME"
-        # GitHub ユーザー名または Organization 名を小文字に変換し、GHCR のリポジトリパスを設定
 
+          # 環境変数 GITHUB_ENV に書き込み、後続ステップで使用
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+
+          echo "✅ Using GHCR Repository: $REPO_NAME"
+
+      # 3. GHCR にログイン (Personal Access Token の GHCR_PAT を使用)
       - name: Login to GitHub Container Registry
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        # GitHub Container Registry にログイン
-        # `--password-stdin` を使用することで、トークンがログに出力されるのを防ぐ
+          # GitHub Container Registry (ghcr.io) へログイン
+          # ここでは GHCR_PAT (Personal Access Token) を使用
+          # ${{ github.actor }} は GitHub Actions を実行しているユーザー名を取得
+          echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+      # 4. 最新の Salesforce CLI イメージを pull (ベースとして使用)
       - name: Pull latest Salesforce CLI image
-        run: docker pull salesforce/cli:latest-full
-        # 最新の Salesforce CLI イメージを取得（Node.js も含まれる）
-
-      - name: Get Salesforce CLI Version
-        id: get-cli-version
         run: |
-          CLI_VERSION=$(docker run --rm salesforce/cli:latest-full sf --version | awk '{print $1}')
-          echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
-          echo "☽☽☽ Salesforce CLI version detected: $CLI_VERSION"
-        # `salesforce/cli:latest-full` から CLI のバージョンを取得し、環境変数に格納
-        # `sf --version` の出力の最初の部分を取得し、バージョン番号として使用
+          # 公式の最新イメージを Pull
+          # Node.js 含む “latest-full” が便利
+          docker pull salesforce/cli:latest-full
 
-      - name: Check if Image Exists on GHCR
-        id: check-image
+      # 5. Docker イメージをビルド (常に再ビルド)
+      - name: Build Docker image
         run: |
-          IMAGE_TAG="${{ env.REPO_NAME }}:${{ env.CLI_VERSION }}"
-          
-          if docker manifest inspect $IMAGE_TAG > /dev/null 2>&1; then
-            echo "✅ Image already exists: $IMAGE_TAG"
-            echo "SKIP_BUILD=true" >> $GITHUB_ENV
-          else
-            echo "❌ Image does not exist: $IMAGE_TAG"
-            echo "SKIP_BUILD=false" >> $GITHUB_ENV
-          fi
-        # GHCR に既に同じバージョンのイメージがあるか確認
-        # すでにある場合は `SKIP_BUILD=true` に設定し、再ビルドを防ぐ
+          IMAGE_TAG="${{ env.REPO_NAME }}:latest"
+          echo "🛠 Building new image: $IMAGE_TAG"
 
-      - name: Delete Old Tags (Keep only latest)
-        if: env.SKIP_BUILD == 'false'
+          docker build -t "$IMAGE_TAG" .
+
+      # 6. Docker イメージを push (latest のみ)　古いバージョンのタグは自動で変更される
+      - name: Push Docker image
+        run: |
+          IMAGE_TAG="${{ env.REPO_NAME }}:latest"
+          echo "📤 Pushing new image: $IMAGE_TAG"
+          docker push "$IMAGE_TAG"
+
+      # 7. Delete Old Tags (keep only latest)
+      - name: Delete Old Tags
         run: |
           echo "🔄 Checking for existing tags in GHCR..."
-          
-          # GHCR からタグリストを取得
-          TAGS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+
+          # GHCR に登録されているタグ一覧を取得 (curlでAPI呼び出し)
+          TAGS_RESPONSE=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GHCR_PAT }}" \
             "https://ghcr.io/v2/${{ env.REPO_NAME }}/tags/list")
 
-          # レスポンスの中身をログに出力（デバッグ用）
           echo "📝 GHCR API Response: $TAGS_RESPONSE"
 
-          # jq で `tags` キーが存在するかチェック
+          # jq で “tags” key を配列としてパースし、タグ名を取得
           EXISTING_TAGS=$(echo "$TAGS_RESPONSE" | jq -r '.tags[]? // empty')
 
-          # 初回実行（タグが存在しない）場合はスキップ
+          # タグがまったく存在しない場合 (初回実行時など) はスキップ
           if [[ -z "$EXISTING_TAGS" ]]; then
             echo "🚀 No existing tags found in GHCR. This is the first run. Skipping deletion."
             exit 0
           fi
 
-          # タグを削除するループ処理
+          # latest 以外のタグをすべて削除する
           for TAG in $EXISTING_TAGS; do
-            if [ "$TAG" != "${{ env.CLI_VERSION }}" ]; then
+            if [ "$TAG" != "latest" ]; then
               echo "🗑 Deleting old image tag: $TAG"
-              curl -X DELETE -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              curl -X DELETE \
+                -H "Authorization: Bearer ${{ secrets.GHCR_PAT }}" \
                 "https://ghcr.io/v2/${{ env.REPO_NAME }}/manifests/$TAG"
             fi
           done
-        # GHCR にあるすべてのタグを取得し、最新バージョン以外のタグを削除する
-        # これにより、不要なバージョンのストレージ使用量を削減できる
 
-      - name: Normalize Salesforce CLI Version for Docker Tag
-        run: |
-          CLI_VERSION_RAW="${{ env.CLI_VERSION }}"
-          CLI_VERSION=$(echo "$CLI_VERSION_RAW" | sed -E 's/[^0-9.]//g')
-
-          echo "CLI_VERSION_NORMALIZED=$CLI_VERSION" >> $GITHUB_ENV
-          echo "🚀 Normalized CLI Version: $CLI_VERSION"
-        # CLIバージョンの特殊文字を変換する(@salesforce/cli/2.77.6　⇒　2.77.6)
-
-      - name: Build and Push Updated Image
-        if: env.SKIP_BUILD == 'false'
-        run: |
-          IMAGE_TAG="${{ env.REPO_NAME }}:${{ env.CLI_VERSION_NORMALIZED }}"
-          
-          echo "🛠 Building new image: $IMAGE_TAG"
-          docker build -t $IMAGE_TAG .
-
-          echo "📤 Pushing new image: $IMAGE_TAG"
-          docker push $IMAGE_TAG
-        # `docker build` を実行し、新しいイメージを作成（タグは CLI のバージョン）
-        # `docker push` で GHCR にアップロード
-
+      # 8. 結果表示
       - name: Output Status
         run: |
-          if [ "${{ env.SKIP_BUILD }}" == "true" ]; then
-            echo "★★★ No new Salesforce CLI version detected. Skipping build and push. ★★★"
-          else
-            echo "★★★ New Salesforce CLI version deployed: ${{ env.CLI_VERSION }} ★★★"
-          fi
-        # ワークフローの最終出力をログに記録
+          echo "★★★ Docker image built & pushed as 'latest' ★★★"
