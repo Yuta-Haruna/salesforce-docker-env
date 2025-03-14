@@ -1,0 +1,61 @@
+// .devcontainer/devcontainer.json
+{
+    "name": "Salesforce CLI Dev Container",
+
+    // GHCR の Docker イメージを指定 (常に :latest を使用)
+    "image": "ghcr.io/yuta-haruna/salesforce-cli:latest",
+
+    // コンテナ内で使いたいポートを転送 (例: 8080 番など)
+    // "forwardPorts": [8080],
+
+    // コンテナ初回起動時に実行するコマンド
+    // 1. 既存のSFプロジェクトを確認し、なければ雛形を作成（既存ファイルを安全に維持）
+    // "postCreateCommand": "/bin/bash -c 'TEMP_DIR=__temp_sf_project__;if [ ! -f ./sfdx-project.json ]; then sfdx force:project:create -n $TEMP_DIR -d .. -t standard --manifest && mv ../$TEMP_DIR/* ../$TEMP_DIR/.* . 2>/dev/null || true && rm -rf ../$TEMP_DIR; fi'",
+    "postCreateCommand": "/bin/bash -c 'TEMP_DIR=__temp_sf_project__;if [ ! -f ./sfdx-project.json ]; then sfdx force:project:create -n $TEMP_DIR -d .. -t standard --manifest && mv ../$TEMP_DIR/* ../$TEMP_DIR/.* . 2>/dev/null || true && rm -rf ../$TEMP_DIR; CURRENT_DIR_NAME=$(basename $(pwd)); sed -i \"s/\\\"name\\\": \\\"$TEMP_DIR\\\"/\\\"name\\\": \\\"$CURRENT_DIR_NAME\\\"/\" sfdx-project.json; fi'",
+
+    // 任意の拡張機能を Dev Container 内にインストールしたい場合は、以下例を追加
+    // "features": {
+    //   "ghcr.io/devcontainers/features/node:1": {
+    //     "version": "16"
+    //   }
+    // },
+
+    // コンテナ環境のオプション
+    "containerEnv": {
+        "SF_CODE_COVERAGE_REQUIREMENT": "75",
+        "SF_DISABLE_AUTOUPDATE": "true",
+        "SF_AUTOUPDATE_DISABLE": "true"
+    },
+
+    // VSCode拡張機能を指定
+    // @Yuta-Haruna が使用している推奨拡張機能です。各プロジェクトで調整してください。
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "salesforce.salesforcedx-vscode",
+                "vscode-icons-team.vscode-icons",
+                "chuckjonas.apex-pmd",
+                "aaron-bond.better-comments",
+                "shardulm94.trailing-spaces",
+                "rangav.vscode-thunder-client",
+                "haruki.sfdc-package-xml-generator-by-git",
+                "ms-vsliveshare.vsliveshare",
+                "oderwat.indent-rainbow",
+                "seatonjiang.gitmoji-vscode",
+                "github.vscode-pull-request-github",
+                "donjayamanne.githistory",
+                "mhutchie.git-graph",
+                "streetsidesoftware.code-spell-checker",
+                "ibm.output-colorizer",
+                "aaron-bond.better-comments"
+            ]
+        }
+    }
+
+    // ユーザー/UID/環境変数の設定（必要な場合のみ）
+    // "containerUser": "vscode",
+    // "remoteUser": "vscode",
+    // "env": {
+    //   "EXAMPLE_VAR": "some_value"
+    // }
+}
